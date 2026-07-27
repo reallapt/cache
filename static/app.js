@@ -8,11 +8,56 @@ const textForm = document.querySelector("#textForm");
 const textContent = document.querySelector("#textContent");
 const textTitle = document.querySelector("#textTitle");
 const toastEl = document.querySelector("#toast");
+const languageToggle = document.querySelector("#languageToggle");
+const deleteDialog = document.querySelector("#deleteDialog");
+const deleteMessage = document.querySelector("#deleteMessage");
+const confirmDelete = document.querySelector("#confirmDelete");
 let dragDepth = 0;
 let toastTimer;
 let gesture = null;
 let highestZ = 1;
 let expiryRefreshPending = false;
+let pendingDelete = null;
+let language = localStorage.getItem("cache-language") || (navigator.language.startsWith("zh") ? "zh" : "en");
+
+const copy = {
+  zh: {
+    upload: "上传", addText: "新建文字", addFolder: "上传文件夹", empty: "拖入文件，或按 Ctrl+V 粘贴",
+    textTitle: "标题", textContent: "写点什么…", save: "保存", chars: "字", loading: "读取中…",
+    previewFailed: "无法预览", remaining: "剩余", expired: "已到期", download: "下载", delete: "删除",
+    deletePrompt: (name) => `删除“${name}”？`, cancel: "取消", deleted: "已删除", deleteFailed: "删除失败",
+    readFailed: "无法读取内容", layoutFailed: "位置保存失败", uploading: (n) => `上传中 ${n}%`, uploaded: "上传完成",
+    tooLarge: "文件太大", uploadFailed: "上传失败", pasted: "文字已粘贴", pasteFailed: "粘贴失败", saved: "已保存", saveFailed: "保存失败"
+  },
+  en: {
+    upload: "Upload", addText: "New text", addFolder: "Upload folder", empty: "Drop files, or press Ctrl+V to paste",
+    textTitle: "Title", textContent: "Write something…", save: "Save", chars: "chars", loading: "Loading…",
+    previewFailed: "Preview unavailable", remaining: "Left", expired: "Expired", download: "Download", delete: "Delete",
+    deletePrompt: (name) => `Delete “${name}”?`, cancel: "Cancel", deleted: "Deleted", deleteFailed: "Could not delete",
+    readFailed: "Could not load content", layoutFailed: "Could not save position", uploading: (n) => `Uploading ${n}%`, uploaded: "Upload complete",
+    tooLarge: "File is too large", uploadFailed: "Upload failed", pasted: "Text pasted", pasteFailed: "Paste failed", saved: "Saved", saveFailed: "Could not save"
+  }
+};
+
+const t = (key, ...args) => {
+  const value = copy[language][key];
+  return typeof value === "function" ? value(...args) : value;
+};
+
+function applyLanguage() {
+  document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  document.querySelector("#uploadLabel").textContent = t("upload");
+  document.querySelector("#addText").title = document.querySelector("#addText").ariaLabel = t("addText");
+  document.querySelector("#addFolder").title = document.querySelector("#addFolder").ariaLabel = t("addFolder");
+  document.querySelector("#emptyDrop span:last-child").textContent = t("empty");
+  textTitle.placeholder = t("textTitle");
+  textContent.placeholder = t("textContent");
+  document.querySelector(".save-button").textContent = t("save");
+  document.querySelector(".cancel-button").textContent = t("cancel");
+  confirmDelete.textContent = t("delete");
+  languageToggle.textContent = language === "zh" ? "EN" : "中";
+  if (canvas.childElementCount) loadItems();
+}
 
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -61,7 +106,7 @@ function updateCountdowns() {
   let expired = false;
   for (const element of document.querySelectorAll("[data-expires-at]")) {
     const remaining = new Date(element.dataset.expiresAt).getTime() - now;
-    element.textContent = remaining > 0 ? `剩余 ${formatRemaining(remaining)}` : "已到期";
+    element.textContent = remaining > 0 ? `${t("remaining")} ${formatRemaining(remaining)}` : t("expired");
     element.classList.toggle("urgent", remaining > 0 && remaining <= 60 * 60 * 1000);
     expired ||= remaining <= 0;
   }
@@ -77,7 +122,7 @@ function defaultLayout(index) {
   const padding = mobile ? 12 : 24;
   const viewportWidth = document.documentElement.clientWidth;
   const width = mobile ? Math.max(180, viewportWidth - padding * 2) : 280;
-  const height = mobile ? 250 : 260;
+  const height = mobile ? 210 : 220;
   const columns = mobile ? 1 : Math.max(1, Math.floor((viewportWidth - padding * 2 + gap) / (width + gap)));
   return {
     x: padding + (index % columns) * (width + gap),
@@ -96,7 +141,7 @@ function previewMarkup(item, path) {
     return `<div class="preview media-preview"><video src="/api/content/${path}" controls preload="metadata" aria-label="${escapeHtml(item.name)}"></video></div>`;
   }
   if (item.preview === "text") {
-    return `<div class="preview text-preview" data-text-path="${escapeHtml(item.path)}"><textarea readonly spellcheck="false" aria-label="文字内容">读取中…</textarea></div>`;
+    return `<div class="preview text-preview" data-text-path="${escapeHtml(item.path)}"><textarea readonly spellcheck="false" aria-label="${t("addText")}">${t("loading")}</textarea></div>`;
   }
   if (item.preview === "folder") {
     return `<div class="preview icon-preview"><span class="large-folder" aria-hidden="true"></span><span class="icon-copy"><span class="icon-name">${escapeHtml(item.name)}</span><span class="icon-meta">${formatSize(item.size)}</span></span></div>`;
@@ -116,7 +161,7 @@ async function hydrateTextPreviews() {
       const payload = await response.json();
       preview.querySelector("textarea").value = payload.content + (payload.truncated ? "\n…" : "");
     } catch {
-      preview.querySelector("textarea").value = "无法预览";
+      preview.querySelector("textarea").value = t("previewFailed");
     }
   }));
 }
@@ -135,9 +180,9 @@ function normalizeDefaultMobileLayouts() {
   let index = 0;
   for (const item of document.querySelectorAll('.item[data-saved="false"]')) {
     item.style.left = "12px";
-    item.style.top = `${76 + index * 262}px`;
+    item.style.top = `${76 + index * 222}px`;
     item.style.width = `${width}px`;
-    item.style.height = "250px";
+    item.style.height = "210px";
     index += 1;
   }
 }
@@ -160,8 +205,8 @@ async function loadItems() {
         ${previewMarkup(item, path)}
         <div class="expiry" data-expires-at="${escapeHtml(item.expiresAt)}"></div>
         <div class="item-actions">
-          <a class="download-button" href="/api/download/${path}" aria-label="下载 ${escapeHtml(item.name)}" title="下载">↓</a>
-          <button class="delete-button" type="button" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" aria-label="删除 ${escapeHtml(item.name)}" title="删除">×</button>
+          <a class="download-button" href="/api/download/${path}" aria-label="${t("download")} ${escapeHtml(item.name)}" title="${t("download")}">↓</a>
+          <button class="delete-button" type="button" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" aria-label="${t("delete")} ${escapeHtml(item.name)}" title="${t("delete")}">×</button>
         </div>
         <div class="resize-handle" aria-hidden="true"></div>
       </article>`;
@@ -172,7 +217,7 @@ async function loadItems() {
     hydrateTextPreviews();
     updateCountdowns();
   } catch {
-    toast("无法读取内容");
+    toast(t("readFailed"));
   }
 }
 
@@ -192,7 +237,7 @@ async function saveItemLayout(item) {
       body: JSON.stringify(payload)
     });
   } catch {
-    toast("位置保存失败");
+    toast(t("layoutFailed"));
   }
 }
 
@@ -203,13 +248,13 @@ function uploadFiles(files) {
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/api/upload");
   xhr.upload.addEventListener("progress", (event) => {
-    if (event.lengthComputable) toast(`上传中 ${Math.round((event.loaded / event.total) * 100)}%`);
+    if (event.lengthComputable) toast(t("uploading", Math.round((event.loaded / event.total) * 100)));
   });
   xhr.addEventListener("load", () => {
-    if (xhr.status >= 200 && xhr.status < 300) { toast("上传完成"); loadItems(); }
-    else toast(xhr.status === 413 ? "文件太大" : "上传失败");
+    if (xhr.status >= 200 && xhr.status < 300) { toast(t("uploaded")); loadItems(); }
+    else toast(xhr.status === 413 ? t("tooLarge") : t("uploadFailed"));
   });
-  xhr.addEventListener("error", () => toast("上传失败"));
+  xhr.addEventListener("error", () => toast(t("uploadFailed")));
   xhr.send(body);
 }
 
@@ -323,33 +368,51 @@ document.addEventListener("paste", async (event) => {
   if (!text.trim()) return;
   event.preventDefault();
   const stamp = new Date().toLocaleString("sv-SE").replaceAll(":", "-");
-  try { await createText(`粘贴 ${stamp}`, text); toast("文字已粘贴"); }
-  catch { toast("粘贴失败"); }
+  try { await createText(`${language === "zh" ? "粘贴" : "Pasted"} ${stamp}`, text); toast(t("pasted")); }
+  catch { toast(t("pasteFailed")); }
 });
 
 document.querySelector("#addText").addEventListener("click", () => { textDialog.showModal(); textTitle.focus(); });
 document.querySelector("#closeDialog").addEventListener("click", () => textDialog.close());
 textDialog.addEventListener("click", (event) => { if (event.target === textDialog) textDialog.close(); });
-textContent.addEventListener("input", () => { document.querySelector("#textCount").textContent = `${textContent.value.length} 字`; });
+textContent.addEventListener("input", () => { document.querySelector("#textCount").textContent = `${textContent.value.length} ${t("chars")}`; });
 textForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await createText(textTitle.value, textContent.value);
     textForm.reset();
-    document.querySelector("#textCount").textContent = "0 字";
+    document.querySelector("#textCount").textContent = `0 ${t("chars")}`;
     textDialog.close();
-    toast("已保存");
-  } catch { toast("保存失败"); }
+    toast(t("saved"));
+  } catch { toast(t("saveFailed")); }
 });
 
 canvas.addEventListener("click", async (event) => {
   const button = event.target.closest(".delete-button");
   if (!button) return;
-  if (!confirm(`删除“${button.dataset.name}”？`)) return;
-  const response = await fetch(`/api/items/${encodedPath(button.dataset.path)}`, { method: "DELETE" });
-  if (response.ok) { toast("已删除"); loadItems(); } else toast("删除失败");
+  pendingDelete = { path: button.dataset.path, name: button.dataset.name };
+  deleteMessage.textContent = t("deletePrompt", pendingDelete.name);
+  deleteDialog.showModal();
+});
+
+deleteDialog.addEventListener("close", async () => {
+  if (deleteDialog.returnValue !== "confirm" || !pendingDelete) { pendingDelete = null; return; }
+  const { path } = pendingDelete;
+  pendingDelete = null;
+  const response = await fetch(`/api/items/${encodedPath(path)}`, { method: "DELETE" });
+  if (response.ok) { toast(t("deleted")); loadItems(); } else toast(t("deleteFailed"));
+});
+
+languageToggle.addEventListener("click", () => {
+  language = language === "zh" ? "en" : "zh";
+  localStorage.setItem("cache-language", language);
+  applyLanguage();
 });
 
 window.addEventListener("resize", () => updateCanvasHeight());
 setInterval(updateCountdowns, 1000);
+setInterval(() => {
+  if (!document.hidden && !gesture && !textDialog.open && !deleteDialog.open) loadItems();
+}, 1000);
+applyLanguage();
 loadItems();
