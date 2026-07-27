@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>cache</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="actions">
+        <button class="icon-button" id="addText" type="button" title="新建文字" aria-label="新建文字">
+          <span class="text-icon" aria-hidden="true">T</span>
+        </button>
+        <button class="icon-button" id="addFolder" type="button" title="上传文件夹" aria-label="上传文件夹">
+          <span class="folder-icon" aria-hidden="true"></span>
+        </button>
+        <button class="add-button" id="addFiles" type="button">
+          <span aria-hidden="true">+</span><span>上传</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="content" aria-live="polite">
+      <div class="empty" id="emptyState">
+        <button class="empty-drop" id="emptyDrop" type="button">
+          <span class="empty-plus" aria-hidden="true">+</span>
+          <span>拖入文件，或按 Ctrl+V 粘贴</span>
+        </button>
+      </div>
+      <div class="items" id="items"></div>
+    </section>
+  </main>
+
+  <div class="drop-overlay" id="dropOverlay"><span>松开以上传</span></div>
+
+  <dialog id="textDialog">
+    <form id="textForm">
+      <div class="dialog-head">
+        <input id="textTitle" maxlength="120" placeholder="标题" autocomplete="off">
+        <button class="close-button" type="button" id="closeDialog" aria-label="关闭">×</button>
+      </div>
+      <textarea id="textContent" placeholder="写点什么…" required></textarea>
+      <div class="dialog-actions">
+        <span id="textCount">0 字</span>
+        <button class="save-button" type="submit">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+  <input id="fileInput" type="file" multiple hidden>
+  <input id="folderInput" type="file" webkitdirectory multiple hidden>
+  <script src="/app.js"></script>
+</body>
+</html>
