@@ -11,6 +11,8 @@
   <main>
     <header>
       <div class="actions">
+        <a class="star-link" href="https://github.com/reallapt/cache" target="_blank" rel="noreferrer">Give us a star!</a>
+        <button class="language-button" id="languageToggle" type="button" aria-label="Switch language">EN</button>
         <button class="icon-button" id="addText" type="button" title="新建文字" aria-label="新建文字">
           <span class="text-icon" aria-hidden="true">T</span>
         </button>
@@ -18,7 +20,7 @@
           <span class="folder-icon" aria-hidden="true"></span>
         </button>
         <button class="add-button" id="addFiles" type="button">
-          <span aria-hidden="true">+</span><span>上传</span>
+          <span aria-hidden="true">+</span><span id="uploadLabel">上传</span>
         </button>
       </div>
     </header>
@@ -46,6 +48,16 @@
       <div class="dialog-actions">
         <span id="textCount">0 字</span>
         <button class="save-button" type="submit">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="confirm-dialog" id="deleteDialog">
+    <form method="dialog">
+      <p id="deleteMessage"></p>
+      <div class="confirm-actions">
+        <button class="cancel-button" value="cancel" type="submit">取消</button>
+        <button class="danger-button" id="confirmDelete" value="confirm" type="submit">删除</button>
       </div>
     </form>
   </dialog>
