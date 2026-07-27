@@ -22,7 +22,7 @@
 需要 Docker 与 Docker Compose。
 
 ```bash
-git clone https://github.com/YOUR_ACCOUNT/cache.git
+git clone https://github.com/reallapt/cache.git
 cd cache
 docker compose up -d --build
 ```
@@ -57,7 +57,7 @@ docker compose up -d --build
 Docker and Docker Compose are required.
 
 ```bash
-git clone https://github.com/YOUR_ACCOUNT/cache.git
+git clone https://github.com/reallapt/cache.git
 cd cache
 docker compose up -d --build
 ```
