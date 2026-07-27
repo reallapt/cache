@@ -15,6 +15,10 @@ button { color: inherit; }
 main { min-height: 100vh; width: 100%; position: relative; }
 header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex; align-items: center; justify-content: flex-end; pointer-events: none; }
 .actions { display: flex; align-items: center; gap: 7px; pointer-events: auto; }
+.star-link, .language-button { height: 32px; border: 0; border-radius: 10px; background: rgb(255 255 255 / 88%); color: #5f5f64; font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: 0 3px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(16px); }
+.star-link { display: inline-flex; align-items: center; padding: 0 11px; }
+.language-button { min-width: 32px; cursor: pointer; }
+.star-link:hover, .language-button:hover { background: #f5f5f7; color: #191919; }
 .icon-button, .add-button, .close-button, .save-button, .empty-drop { border: 0; cursor: pointer; }
 .icon-button { width: 40px; height: 40px; display: grid; place-items: center; background: rgb(255 255 255 / 88%); border: 1px solid rgb(0 0 0 / 6%); border-radius: 12px; box-shadow: 0 3px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(16px); }
 .icon-button:hover { background: #f5f5f7; }
@@ -85,7 +89,7 @@ header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex;
 .drop-overlay { position: fixed; inset: 12px; z-index: 20000; display: none; place-items: center; border: 1.5px dashed #8d8d88; border-radius: 18px; background: rgb(255 255 255 / 94%); color: #555; font-size: 15px; }
 .drop-overlay.visible { display: grid; }
 
-dialog { width: min(600px, calc(100% - 32px)); height: min(520px, calc(100% - 64px)); padding: 0; border: 1px solid rgb(0 0 0 / 10%); border-radius: 18px; box-shadow: 0 28px 90px rgb(0 0 0 / 16%); overflow: hidden; }
+dialog { width: min(600px, calc(100% - 32px)); height: min(420px, calc(100% - 64px)); padding: 0; border: 1px solid rgb(0 0 0 / 10%); border-radius: 18px; box-shadow: 0 28px 90px rgb(0 0 0 / 16%); overflow: hidden; }
 dialog::backdrop { background: rgb(0 0 0 / 16%); backdrop-filter: blur(2px); }
 dialog form { height: 100%; display: flex; flex-direction: column; }
 .dialog-head { height: 66px; padding: 0 20px; display: flex; align-items: center; border-bottom: 1px solid #ededeb; }
@@ -97,12 +101,20 @@ textarea { flex: 1; resize: none; padding: 22px; border: 0; outline: 0; line-hei
 .dialog-actions { min-height: 64px; padding: 12px 16px 12px 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #ededeb; }
 .dialog-actions span { color: #aaa; font-size: 12px; }
 .save-button { min-width: 72px; height: 38px; border-radius: 10px; background: #191919; color: #fff; font-weight: 650; }
+.confirm-dialog { width: min(340px, calc(100% - 32px)); height: auto; padding: 22px; border-radius: 14px; }
+.confirm-dialog form { display: block; }
+.confirm-dialog p { margin: 0; color: #252525; font-size: 15px; line-height: 1.5; word-break: break-word; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.cancel-button, .danger-button { height: 34px; padding: 0 13px; border: 0; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 650; }
+.cancel-button { background: #f1f1f0; color: #444; }
+.danger-button { background: #d92d20; color: #fff; }
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 30000; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 12px; background: #191919; color: #fff; font-size: 13px; opacity: 0; transform: translate(-50%, 10px); pointer-events: none; transition: 160ms ease; }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 640px) {
   header { top: 14px; right: 12px; }
   .actions { gap: 3px; }
+  .star-link { display: none; }
   .add-button { padding: 0 12px; }
   .item-actions, .resize-handle { opacity: 1; }
 }
