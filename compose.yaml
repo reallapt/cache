@@ -2,7 +2,7 @@ name: cache
 
 services:
   cache:
-    build: .
+    image: reallapt/cache:latest
     container_name: cache
     restart: unless-stopped
     ports:
