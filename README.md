@@ -23,31 +23,28 @@
 
 需要 Docker 与 Docker Compose。
 
-#### Compose：克隆仓库
+#### Compose：下载配置后启动
+
+```bash
+curl -LO https://raw.githubusercontent.com/reallapt/cache/main/compose.yaml
+docker compose up -d
+```
+
+#### Docker CLI：拉取并启动
+
+```bash
+docker pull reallapt/cache:latest
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:latest
+```
+
+#### 本地构建与 tag
 
 ```bash
 git clone https://github.com/reallapt/cache.git
 cd cache
-docker compose up -d --build
-```
-
-#### Compose：下载源码压缩包
-
-```bash
-curl -L https://github.com/reallapt/cache/archive/refs/heads/main.tar.gz -o cache.tar.gz
-tar -xzf cache.tar.gz
-cd cache-main
-docker compose up -d --build
-```
-
-#### Docker CLI：构建与 tag
-
-```bash
-git clone https://github.com/reallapt/cache.git
-cd cache
-docker build -t cache:latest .
-docker tag cache:latest cache:local
-docker run -d --name cache -p 9178:8000 -v cache-data:/data/files cache:local
+docker build -t reallapt/cache:latest .
+docker tag reallapt/cache:latest reallapt/cache:local
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:local
 ```
 
 默认打开 <http://localhost:9178>。内容保存在项目目录的 `data/` 中；即使容器重建，布局和倒计时元数据也会保留。
@@ -79,31 +76,28 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files cache:local
 
 Docker and Docker Compose are required.
 
-#### Compose: clone the repository
+#### Compose: download the configuration and start
+
+```bash
+curl -LO https://raw.githubusercontent.com/reallapt/cache/main/compose.yaml
+docker compose up -d
+```
+
+#### Docker CLI: pull and run
+
+```bash
+docker pull reallapt/cache:latest
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:latest
+```
+
+#### Local build and tag
 
 ```bash
 git clone https://github.com/reallapt/cache.git
 cd cache
-docker compose up -d --build
-```
-
-#### Compose: download the source archive
-
-```bash
-curl -L https://github.com/reallapt/cache/archive/refs/heads/main.tar.gz -o cache.tar.gz
-tar -xzf cache.tar.gz
-cd cache-main
-docker compose up -d --build
-```
-
-#### Docker CLI: build and tag
-
-```bash
-git clone https://github.com/reallapt/cache.git
-cd cache
-docker build -t cache:latest .
-docker tag cache:latest cache:local
-docker run -d --name cache -p 9178:8000 -v cache-data:/data/files cache:local
+docker build -t reallapt/cache:latest .
+docker tag reallapt/cache:latest reallapt/cache:local
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:local
 ```
 
 Open <http://localhost:9178>. Content is stored in the local `data/` directory, so it survives container rebuilds together with layout and expiry metadata.
