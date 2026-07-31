@@ -17,6 +17,7 @@
 - 内容块可自由拖动、调整大小和层级；桌面与移动端布局分别保存。
 - 单击下载；文件夹下载时自动打包为 ZIP。
 - 每个内容从创建起保留 24 小时，显示实时倒计时；少于一小时变红，到期后自动删除。
+- 可通过右上角的“自动删除”开关暂停或恢复自动删除；关闭时保留文件但暂停倒计时，重新开启会重置现有内容的 24 小时期限。
 - 移动端和桌面端响应式界面。
 
 ### 安装
@@ -33,8 +34,8 @@ docker compose up -d
 #### Docker CLI：拉取并启动
 
 ```bash
-docker pull reallapt/cache:latest
-docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:latest
+docker pull reallapt/cache:v2
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:v2
 ```
 
 #### 本地构建与 tag
@@ -42,8 +43,8 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 ```bash
 git clone https://github.com/reallapt/cache.git
 cd cache
-docker build -t reallapt/cache:latest .
-docker tag reallapt/cache:latest reallapt/cache:local
+docker build -t reallapt/cache:v2 .
+docker tag reallapt/cache:v2 reallapt/cache:local
 docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:local
 ```
 
@@ -54,6 +55,8 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `MAX_UPLOAD_MB` | `2048` | 单次上传请求最大大小，单位 MB。 |
+
+自动删除默认开启，可在页面右上角切换。设置保存在数据卷中的 `.settings.json`；关闭后不会删除已过期内容，重新开启时会为现有内容重新设置 24 小时期限，并清理已经过期的内容。
 
 如部署在 Nginx、Caddy 或其他反向代理之后，请同步提高代理的请求体限制。`cache` 默认没有身份验证，若服务可被不受信任的网络访问，请在反向代理或防火墙中限制访问。
 
@@ -70,6 +73,7 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 - Drag, resize, and layer every item freely. Desktop and mobile layouts are saved separately.
 - Click to download. Folders are downloaded as ZIP archives automatically.
 - Every item has a 24-hour lifetime with a live countdown. It turns red during the final hour and is deleted automatically on expiry.
+- Toggle auto-delete from the top-right control. When disabled, files are retained and countdowns are paused; re-enabling resets the 24-hour lifetime for existing items.
 - Responsive desktop and mobile interface.
 
 ### Install
@@ -86,8 +90,8 @@ docker compose up -d
 #### Docker CLI: pull and run
 
 ```bash
-docker pull reallapt/cache:latest
-docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:latest
+docker pull reallapt/cache:v2
+docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:v2
 ```
 
 #### Local build and tag
@@ -95,8 +99,8 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 ```bash
 git clone https://github.com/reallapt/cache.git
 cd cache
-docker build -t reallapt/cache:latest .
-docker tag reallapt/cache:latest reallapt/cache:local
+docker build -t reallapt/cache:v2 .
+docker tag reallapt/cache:v2 reallapt/cache:local
 docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache:local
 ```
 
@@ -107,5 +111,7 @@ Open <http://localhost:9178>. Content is stored in the local `data/` directory, 
 | Environment variable | Default | Description |
 | --- | --- | --- |
 | `MAX_UPLOAD_MB` | `2048` | Maximum upload request size in MB. |
+
+Auto-delete is enabled by default and can be toggled from the top-right control. The setting is stored in `.settings.json` inside the data volume. When disabled, expired content is retained and countdowns are paused; enabling it again resets existing items to a 24-hour lifetime and removes items that are already expired.
 
 If you deploy behind Nginx, Caddy, or another reverse proxy, raise the proxy request-body limit as well. `cache` has no built-in authentication. Restrict access through a firewall or reverse proxy before exposing it to an untrusted network.

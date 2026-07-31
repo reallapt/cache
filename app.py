@@ -17,10 +17,18 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
 
+
+@app.after_request
+def disable_static_cache(response):
+    if request.path == "/" or request.path.startswith("/app."):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data/files")).resolve()
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LAYOUT_FILE = DATA_DIR / ".layout.json"
 EXPIRY_FILE = DATA_DIR / ".expiry.json"
+SETTINGS_FILE = DATA_DIR / ".settings.json"
 EXPIRY_SECONDS = 24 * 60 * 60
 EXPIRY_LOCK = threading.Lock()
 
@@ -97,6 +105,36 @@ def save_expirations(payload: dict[str, float]) -> None:
     os.replace(temporary, EXPIRY_FILE)
 
 
+def load_settings() -> dict:
+    try:
+        payload = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_settings(payload: dict) -> None:
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=DATA_DIR, prefix=".settings-", delete=False) as file:
+        json.dump(payload, file, ensure_ascii=False, separators=(",", ":"))
+        temporary = Path(file.name)
+    os.replace(temporary, SETTINGS_FILE)
+
+
+def auto_delete_enabled() -> bool:
+    return load_settings().get("autoDelete", True) is not False
+
+
+def reset_expirations() -> None:
+    with EXPIRY_LOCK:
+        expires_at = time.time() + EXPIRY_SECONDS
+        expirations = {
+            path.name: expires_at
+            for path in DATA_DIR.iterdir()
+            if not path.name.startswith(".")
+        }
+        save_expirations(expirations)
+
+
 def stored_target(raw_path: str) -> Path | None:
     path = PurePosixPath(raw_path)
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
@@ -110,6 +148,7 @@ def cleanup_expired() -> dict[str, float]:
     with EXPIRY_LOCK:
         now = time.time()
         expirations = load_expirations()
+        should_delete = auto_delete_enabled()
         items = {path.name: path for path in DATA_DIR.iterdir() if not path.name.startswith(".")}
         changed = False
         removed = []
@@ -119,7 +158,7 @@ def cleanup_expired() -> dict[str, float]:
             if name not in items or target is None or not target.exists():
                 expirations.pop(name, None)
                 changed = True
-            elif expires_at <= now:
+            elif expires_at <= now and should_delete:
                 if target.is_dir():
                     shutil.rmtree(target, ignore_errors=True)
                 else:
@@ -168,10 +207,16 @@ def item_payload(path: Path, layout: dict | None = None, expires_at: float | Non
         preview = "folder"
     elif suffix in {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2"}:
         preview = "archive"
+    elif suffix == ".pdf" or mime_type == "application/pdf":
+        preview = "pdf"
     elif mime_type.startswith("image/"):
         preview = "image"
     elif mime_type.startswith("video/"):
         preview = "video"
+    elif mime_type.startswith("audio/") or suffix in {".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac"}:
+        preview = "audio"
+    elif mime_type.startswith("audio/") or suffix in {".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac"}:
+        preview = "audio"
     elif mime_type.startswith("text/") or suffix in {".md", ".json", ".log", ".csv", ".yaml", ".yml"}:
         preview = "text"
     else:
@@ -201,6 +246,25 @@ def list_items():
     items = [item_payload(path, layout, expirations.get(path.name)) for path in DATA_DIR.iterdir() if not path.name.startswith(".")]
     items.sort(key=lambda item: item["modified"], reverse=True)
     return jsonify(items)
+
+
+@app.get("/api/settings")
+def get_settings():
+    return jsonify({"autoDelete": auto_delete_enabled()})
+
+
+@app.patch("/api/settings")
+def update_settings():
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload.get("autoDelete"), bool):
+        abort(400, "Invalid auto-delete setting")
+    settings = load_settings()
+    settings["autoDelete"] = payload["autoDelete"]
+    save_settings(settings)
+    if settings["autoDelete"]:
+        reset_expirations()
+        cleanup_expired()
+    return jsonify({"autoDelete": settings["autoDelete"]})
 
 
 @app.post("/api/upload")
