@@ -12,30 +12,35 @@ const languageToggle = document.querySelector("#languageToggle");
 const deleteDialog = document.querySelector("#deleteDialog");
 const deleteMessage = document.querySelector("#deleteMessage");
 const confirmDelete = document.querySelector("#confirmDelete");
+const autoDeleteToggle = document.querySelector("#autoDeleteToggle");
+const autoDeleteLabel = document.querySelector("#autoDeleteLabel");
 let dragDepth = 0;
 let toastTimer;
 let gesture = null;
 let highestZ = 1;
 let expiryRefreshPending = false;
 let pendingDelete = null;
+let itemsFingerprint = "";
+let currentItems = [];
 let language = localStorage.getItem("cache-language") || (navigator.language.startsWith("zh") ? "zh" : "en");
+let autoDeleteEnabled = true;
 
 const copy = {
   zh: {
     upload: "上传", addText: "新建文字", addFolder: "上传文件夹", empty: "拖入文件，或按 Ctrl+V 粘贴",
     textTitle: "标题", textContent: "写点什么…", save: "保存", chars: "字", loading: "读取中…",
-    previewFailed: "无法预览", remaining: "剩余", expired: "已到期", download: "下载", delete: "删除",
+    previewFailed: "无法预览", remaining: "剩余", expired: "已到期", autoDeleteOn: "自动删除：开", autoDeleteOff: "自动删除：关", autoDeletePaused: "自动删除已关闭", download: "下载", delete: "删除",
     deletePrompt: (name) => `删除“${name}”？`, cancel: "取消", deleted: "已删除", deleteFailed: "删除失败",
     readFailed: "无法读取内容", layoutFailed: "位置保存失败", uploading: (n) => `上传中 ${n}%`, uploaded: "上传完成",
-    tooLarge: "文件太大", uploadFailed: "上传失败", pasted: "文字已粘贴", pasteFailed: "粘贴失败", saved: "已保存", saveFailed: "保存失败"
+    tooLarge: "文件太大", uploadFailed: "上传失败", pasted: "文字已粘贴", pasteFailed: "粘贴失败", saved: "已保存", saveFailed: "保存失败", settingsFailed: "设置保存失败"
   },
   en: {
     upload: "Upload", addText: "New text", addFolder: "Upload folder", empty: "Drop files, or press Ctrl+V to paste",
     textTitle: "Title", textContent: "Write something…", save: "Save", chars: "chars", loading: "Loading…",
-    previewFailed: "Preview unavailable", remaining: "Left", expired: "Expired", download: "Download", delete: "Delete",
+    previewFailed: "Preview unavailable", remaining: "Left", expired: "Expired", autoDeleteOn: "Auto-delete: On", autoDeleteOff: "Auto-delete: Off", autoDeletePaused: "Auto-delete off", download: "Download", delete: "Delete",
     deletePrompt: (name) => `Delete “${name}”?`, cancel: "Cancel", deleted: "Deleted", deleteFailed: "Could not delete",
     readFailed: "Could not load content", layoutFailed: "Could not save position", uploading: (n) => `Uploading ${n}%`, uploaded: "Upload complete",
-    tooLarge: "File is too large", uploadFailed: "Upload failed", pasted: "Text pasted", pasteFailed: "Paste failed", saved: "Saved", saveFailed: "Could not save"
+    tooLarge: "File is too large", uploadFailed: "Upload failed", pasted: "Text pasted", pasteFailed: "Paste failed", saved: "Saved", saveFailed: "Could not save", settingsFailed: "Could not save settings"
   }
 };
 
@@ -43,6 +48,8 @@ const t = (key, ...args) => {
   const value = copy[language][key];
   return typeof value === "function" ? value(...args) : value;
 };
+
+const fingerprintItems = (items) => JSON.stringify(items.map((item) => ({ path: item.path, modified: item.modified, expiresAt: item.expiresAt, layout: item.layout })));
 
 function applyLanguage() {
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
@@ -53,10 +60,24 @@ function applyLanguage() {
   textTitle.placeholder = t("textTitle");
   textContent.placeholder = t("textContent");
   document.querySelector(".save-button").textContent = t("save");
-  document.querySelector(".cancel-button").textContent = t("cancel");
-  confirmDelete.textContent = t("delete");
+  const cancelButton = document.querySelector(".cancel-button");
+  if (cancelButton) cancelButton.textContent = t("cancel");
+  if (confirmDelete) confirmDelete.textContent = t("delete");
   languageToggle.textContent = language === "zh" ? "EN" : "中";
+  applyAutoDeleteState(autoDeleteEnabled);
   if (canvas.childElementCount) loadItems();
+}
+
+function applyAutoDeleteState(enabled) {
+  autoDeleteEnabled = Boolean(enabled);
+  document.body.classList.toggle("auto-delete-off", !autoDeleteEnabled);
+  autoDeleteToggle?.classList.toggle("disabled", !autoDeleteEnabled);
+  autoDeleteToggle?.setAttribute("aria-pressed", String(autoDeleteEnabled));
+  if (autoDeleteLabel) autoDeleteLabel.textContent = t(autoDeleteEnabled ? "autoDeleteOn" : "autoDeleteOff");
+  if (autoDeleteToggle) {
+    autoDeleteToggle.title = t(autoDeleteEnabled ? "autoDeleteOff" : "autoDeleteOn");
+    autoDeleteToggle.setAttribute("aria-label", autoDeleteToggle.title);
+  }
 }
 
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({
@@ -106,9 +127,10 @@ function updateCountdowns() {
   let expired = false;
   for (const element of document.querySelectorAll("[data-expires-at]")) {
     const remaining = new Date(element.dataset.expiresAt).getTime() - now;
-    element.textContent = remaining > 0 ? `${t("remaining")} ${formatRemaining(remaining)}` : t("expired");
-    element.classList.toggle("urgent", remaining > 0 && remaining <= 60 * 60 * 1000);
-    expired ||= remaining <= 0;
+    element.hidden = !autoDeleteEnabled;
+    element.textContent = !autoDeleteEnabled ? t("autoDeletePaused") : (remaining > 0 ? `${t("remaining")} ${formatRemaining(remaining)}` : t("expired"));
+    element.classList.toggle("urgent", autoDeleteEnabled && remaining > 0 && remaining <= 60 * 60 * 1000);
+    expired ||= autoDeleteEnabled && remaining <= 0;
   }
   if (expired && !expiryRefreshPending) {
     expiryRefreshPending = true;
@@ -122,7 +144,7 @@ function defaultLayout(index) {
   const padding = mobile ? 12 : 24;
   const viewportWidth = document.documentElement.clientWidth;
   const width = mobile ? Math.max(180, viewportWidth - padding * 2) : 280;
-  const height = mobile ? 210 : 220;
+  const height = mobile ? 170 : 180;
   const columns = mobile ? 1 : Math.max(1, Math.floor((viewportWidth - padding * 2 + gap) / (width + gap)));
   return {
     x: padding + (index % columns) * (width + gap),
@@ -138,7 +160,13 @@ function previewMarkup(item, path) {
     return `<div class="preview media-preview"><img src="/api/content/${path}" alt="" draggable="false" loading="lazy"></div>`;
   }
   if (item.preview === "video") {
-    return `<div class="preview media-preview"><video src="/api/content/${path}" controls preload="metadata" aria-label="${escapeHtml(item.name)}"></video></div>`;
+    return `<div class="video-titlebar"><span class="video-name">${escapeHtml(item.name)}</span><span class="video-title-actions"><a class="download-button" href="/api/download/${path}" aria-label="${t("download")} ${escapeHtml(item.name)}" title="${t("download")}">↓</a><button class="delete-button" type="button" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" aria-label="${t("delete")} ${escapeHtml(item.name)}" title="${t("delete")}">×</button></span></div><div class="preview media-preview"><video src="/api/content/${path}" controls preload="metadata" aria-label="${escapeHtml(item.name)}"></video></div>`;
+  }
+  if (item.preview === "pdf") {
+    return `<div class="pdf-titlebar"><span class="pdf-name">${escapeHtml(item.name)}</span><span class="pdf-title-actions"><a class="download-button" href="/api/download/${path}" aria-label="${t("download")} ${escapeHtml(item.name)}" title="${t("download")}">↓</a><button class="delete-button" type="button" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" aria-label="${t("delete")} ${escapeHtml(item.name)}" title="${t("delete")}">×</button></span></div><div class="preview pdf-preview"><iframe src="/api/content/${path}#view=FitH" title="${escapeHtml(item.name)}"></iframe></div>`;
+  }
+  if (item.preview === "audio") {
+    return `<div class="preview audio-preview"><span class="audio-name">${escapeHtml(item.name)}</span><audio src="/api/content/${path}" controls preload="metadata" aria-label="${escapeHtml(item.name)}"></audio></div>`;
   }
   if (item.preview === "text") {
     return `<div class="preview text-preview" data-text-path="${escapeHtml(item.path)}"><textarea readonly spellcheck="false" aria-label="${t("addText")}">${t("loading")}</textarea></div>`;
@@ -180,18 +208,26 @@ function normalizeDefaultMobileLayouts() {
   let index = 0;
   for (const item of document.querySelectorAll('.item[data-saved="false"]')) {
     item.style.left = "12px";
-    item.style.top = `${76 + index * 222}px`;
+    item.style.top = `${76 + index * 182}px`;
     item.style.width = `${width}px`;
-    item.style.height = "210px";
+    item.style.height = "170px";
     index += 1;
   }
 }
 
-async function loadItems() {
+async function loadItems(force = false) {
   try {
     const response = await fetch("/api/items");
     if (!response.ok) throw new Error();
     const items = await response.json();
+    const fingerprint = fingerprintItems(items);
+    if (!force && fingerprint === itemsFingerprint) {
+      updateCountdowns();
+      return;
+    }
+    itemsFingerprint = fingerprint;
+    currentItems = items;
+    const preservedPdfs = new Map([...canvas.querySelectorAll(".item-pdf")].map((element) => [element.dataset.path, element]));
     emptyState.hidden = items.length > 0;
     canvas.classList.toggle("has-items", items.length > 0);
     const mode = layoutMode();
@@ -201,6 +237,12 @@ async function loadItems() {
       const saved = item.layout?.[mode];
       const layout = saved || defaultLayout(index);
       highestZ = Math.max(highestZ, layout.z || 1);
+      if (item.preview === "pdf" && preservedPdfs.has(item.path)) {
+        return `<div class="pdf-placeholder" data-reuse-pdf="${escapeHtml(item.path)}"></div>`;
+      }
+      if (item.preview === "pdf" && preservedPdfs.has(item.path)) {
+        return `<div class="pdf-placeholder" data-reuse-pdf="${escapeHtml(item.path)}"></div>`;
+      }
       return `<article class="item item-${item.preview}" data-path="${escapeHtml(item.path)}" data-saved="${Boolean(saved)}" style="left:${layout.x}px;top:${layout.y}px;width:${layout.w}px;height:${layout.h}px;z-index:${layout.z || 1}">
         ${previewMarkup(item, path)}
         <div class="expiry" data-expires-at="${escapeHtml(item.expiresAt)}"></div>
@@ -211,6 +253,26 @@ async function loadItems() {
         <div class="resize-handle" aria-hidden="true"></div>
       </article>`;
     }).join("");
+    for (const placeholder of canvas.querySelectorAll("[data-reuse-pdf]")) {
+      const item = items.find((entry) => entry.path === placeholder.dataset.reusePdf);
+      const pdf = preservedPdfs.get(item.path);
+      const saved = item.layout?.[mode];
+      const layout = saved || defaultLayout(items.indexOf(item));
+      pdf.dataset.saved = Boolean(saved);
+      pdf.style.cssText = `left:${layout.x}px;top:${layout.y}px;width:${layout.w}px;height:${layout.h}px;z-index:${layout.z || 1}`;
+      pdf.querySelector(".expiry").dataset.expiresAt = item.expiresAt;
+      placeholder.replaceWith(pdf);
+    }
+    for (const placeholder of canvas.querySelectorAll("[data-reuse-pdf]")) {
+      const item = items.find((entry) => entry.path === placeholder.dataset.reusePdf);
+      const pdf = preservedPdfs.get(item.path);
+      const saved = item.layout?.[mode];
+      const layout = saved || defaultLayout(items.indexOf(item));
+      pdf.dataset.saved = Boolean(saved);
+      pdf.style.cssText = `left:${layout.x}px;top:${layout.y}px;width:${layout.w}px;height:${layout.h}px;z-index:${layout.z || 1}`;
+      pdf.querySelector(".expiry").dataset.expiresAt = item.expiresAt;
+      placeholder.replaceWith(pdf);
+    }
     updateCanvasHeight();
     normalizeDefaultMobileLayouts();
     updateCanvasHeight();
@@ -231,11 +293,18 @@ async function saveItemLayout(item) {
     z: Number(item.style.zIndex) || 1
   };
   try {
-    await fetch(`/api/layout/${encodedPath(item.dataset.path)}`, {
+    const response = await fetch(`/api/layout/${encodedPath(item.dataset.path)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+    if (!response.ok) throw new Error();
+    const savedItem = currentItems.find((entry) => entry.path === item.dataset.path);
+    if (savedItem) {
+      savedItem.layout ??= {};
+      savedItem.layout[payload.mode] = payload;
+      itemsFingerprint = fingerprintItems(currentItems);
+    }
   } catch {
     toast(t("layoutFailed"));
   }
@@ -266,6 +335,33 @@ async function createText(title, content) {
   });
   if (!response.ok) throw new Error();
   await loadItems();
+}
+
+async function loadSettings() {
+  const response = await fetch("/api/settings");
+  if (!response.ok) throw new Error();
+  const settings = await response.json();
+  applyAutoDeleteState(settings.autoDelete !== false);
+}
+
+async function toggleAutoDelete() {
+  if (!autoDeleteToggle) return;
+  autoDeleteToggle.disabled = true;
+  try {
+    const response = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ autoDelete: !autoDeleteEnabled })
+    });
+    if (!response.ok) throw new Error();
+    const settings = await response.json();
+    applyAutoDeleteState(settings.autoDelete !== false);
+    await loadItems(true);
+  } catch {
+    toast(t("settingsFailed"));
+  } finally {
+    autoDeleteToggle.disabled = false;
+  }
 }
 
 async function filesFromEntry(entry, prefix = "") {
@@ -310,7 +406,7 @@ document.addEventListener("drop", async (event) => {
 
 canvas.addEventListener("pointerdown", (event) => {
   const item = event.target.closest(".item");
-  if (!item || event.button !== 0 || event.target.closest(".item-actions, video")) return;
+  if (!item || event.button !== 0 || event.target.closest(".item-actions, .pdf-title-actions, .video-title-actions, video, audio, iframe")) return;
   if (event.target.closest(".text-preview textarea")) {
     highestZ += 1;
     item.style.zIndex = highestZ;
@@ -390,12 +486,12 @@ textForm.addEventListener("submit", async (event) => {
 canvas.addEventListener("click", async (event) => {
   const button = event.target.closest(".delete-button");
   if (!button) return;
-  pendingDelete = { path: button.dataset.path, name: button.dataset.name };
-  deleteMessage.textContent = t("deletePrompt", pendingDelete.name);
-  deleteDialog.showModal();
+  if (!confirm(t("deletePrompt", button.dataset.name))) return;
+  const response = await fetch(`/api/items/${encodedPath(button.dataset.path)}`, { method: "DELETE" });
+  if (response.ok) { toast(t("deleted")); loadItems(); } else toast(t("deleteFailed"));
 });
 
-deleteDialog.addEventListener("close", async () => {
+deleteDialog?.addEventListener("close", async () => {
   if (deleteDialog.returnValue !== "confirm" || !pendingDelete) { pendingDelete = null; return; }
   const { path } = pendingDelete;
   pendingDelete = null;
@@ -408,11 +504,12 @@ languageToggle.addEventListener("click", () => {
   localStorage.setItem("cache-language", language);
   applyLanguage();
 });
+autoDeleteToggle?.addEventListener("click", toggleAutoDelete);
 
 window.addEventListener("resize", () => updateCanvasHeight());
 setInterval(updateCountdowns, 1000);
 setInterval(() => {
-  if (!document.hidden && !gesture && !textDialog.open && !deleteDialog.open) loadItems();
+  if (!document.hidden && !gesture && !textDialog.open && !deleteDialog?.open) loadItems();
 }, 1000);
 applyLanguage();
-loadItems();
+Promise.all([loadSettings(), loadItems(true)]).catch(() => toast(t("readFailed")));

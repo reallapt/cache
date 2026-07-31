@@ -13,6 +13,9 @@
       <div class="actions">
         <a class="star-link" href="https://github.com/reallapt/cache" target="_blank" rel="noreferrer">Give us a star!</a>
         <button class="language-button" id="languageToggle" type="button" aria-label="Switch language">EN</button>
+        <button class="auto-delete-button" id="autoDeleteToggle" type="button" aria-pressed="true">
+          <span class="auto-delete-icon" aria-hidden="true">◷</span><span id="autoDeleteLabel">自动删除：开</span>
+        </button>
         <button class="icon-button" id="addText" type="button" title="新建文字" aria-label="新建文字">
           <span class="text-icon" aria-hidden="true">T</span>
         </button>
@@ -65,6 +68,6 @@
   <div class="toast" id="toast" role="status"></div>
   <input id="fileInput" type="file" multiple hidden>
   <input id="folderInput" type="file" webkitdirectory multiple hidden>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20260728-2"></script>
 </body>
 </html>

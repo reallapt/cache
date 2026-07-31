@@ -15,10 +15,14 @@ button { color: inherit; }
 main { min-height: 100vh; width: 100%; position: relative; }
 header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex; align-items: center; justify-content: flex-end; pointer-events: none; }
 .actions { display: flex; align-items: center; gap: 7px; pointer-events: auto; }
-.star-link, .language-button { height: 32px; border: 0; border-radius: 10px; background: rgb(255 255 255 / 88%); color: #5f5f64; font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: 0 3px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(16px); }
+.star-link, .language-button, .auto-delete-button { height: 32px; border: 0; border-radius: 10px; background: rgb(255 255 255 / 88%); color: #5f5f64; font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: 0 3px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(16px); }
 .star-link { display: inline-flex; align-items: center; padding: 0 11px; }
 .language-button { min-width: 32px; cursor: pointer; }
-.star-link:hover, .language-button:hover { background: #f5f5f7; color: #191919; }
+.auto-delete-button { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; cursor: pointer; }
+.auto-delete-button.disabled { color: #a53a32; background: #fff1ee; }
+.auto-delete-button:disabled { cursor: wait; opacity: .65; }
+.auto-delete-icon { font-size: 16px; line-height: 1; }
+.star-link:hover, .language-button:hover, .auto-delete-button:hover { background: #f5f5f7; color: #191919; }
 .icon-button, .add-button, .close-button, .save-button, .empty-drop { border: 0; cursor: pointer; }
 .icon-button { width: 40px; height: 40px; display: grid; place-items: center; background: rgb(255 255 255 / 88%); border: 1px solid rgb(0 0 0 / 6%); border-radius: 12px; box-shadow: 0 3px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(16px); }
 .icon-button:hover { background: #f5f5f7; }
@@ -52,6 +56,27 @@ header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex;
 .media-preview { display: grid; place-items: center; background: #f2f2f0; }
 .media-preview img, .media-preview video { width: 100%; height: 100%; object-fit: contain; }
 .media-preview video { background: #111; user-select: auto; touch-action: auto; }
+.pdf-preview { background: #ededeb; }
+.pdf-preview iframe { width: 100%; height: 100%; border: 0; background: #fff; pointer-events: auto; }
+.item-pdf { overflow: visible; }
+.item-pdf .pdf-preview { overflow: hidden; border-radius: inherit; }
+.pdf-titlebar { position: absolute; left: -1px; right: -1px; bottom: 100%; z-index: 5; height: 30px; display: flex; align-items: center; padding: 0 10px; border: 1px solid rgb(0 0 0 / 8%); border-bottom: 0; border-radius: 12px 12px 0 0; background: #f5f5f7; color: #363638; cursor: grab; box-shadow: 0 -2px 8px rgb(0 0 0 / 4%); }
+.item-pdf.moving .pdf-titlebar { cursor: grabbing; }
+.pdf-name { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-title-actions { margin-left: auto; display: flex; gap: 3px; }
+.pdf-title-actions .download-button, .pdf-title-actions .delete-button { width: 24px; height: 24px; border: 0; border-radius: 7px; box-shadow: none; background: transparent; }
+.item-pdf > .item-actions { display: none; }
+.item-video { overflow: visible; }
+.item-video .media-preview { overflow: hidden; border-radius: inherit; }
+.video-titlebar { position: absolute; left: -1px; right: -1px; bottom: 100%; z-index: 5; height: 30px; display: flex; align-items: center; padding: 0 6px 0 10px; border: 1px solid rgb(0 0 0 / 8%); border-bottom: 0; border-radius: 12px 12px 0 0; background: #f5f5f7; color: #363638; cursor: grab; box-shadow: 0 -2px 8px rgb(0 0 0 / 4%); }
+.item-video.moving .video-titlebar { cursor: grabbing; }
+.video-name { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.video-title-actions { margin-left: auto; display: flex; gap: 3px; }
+.video-title-actions .download-button, .video-title-actions .delete-button { width: 24px; height: 24px; border: 0; border-radius: 7px; box-shadow: none; background: transparent; }
+.item-video > .item-actions { display: none; }
+.audio-preview { display: grid; place-content: center; gap: 14px; padding: 22px; background: #f5f5f7; }
+.audio-preview audio { width: min(100%, 360px); }
+.audio-name { max-width: 100%; overflow: hidden; color: #343438; font-size: 13px; font-weight: 650; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .text-preview { padding: 18px; background: #fff; cursor: grab; }
 .text-preview textarea { width: 100%; height: 100%; margin: 0; padding: 0; overflow: auto; resize: none; border: 0; outline: 0; background: transparent; color: #333; cursor: text; user-select: text; touch-action: pan-y; font: 14px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; }
 
@@ -78,6 +103,7 @@ header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex;
 .delete-button:hover { color: #d53825; background: #fff1ee; }
 
 .expiry { position: absolute; left: 10px; bottom: 10px; z-index: 3; padding: 5px 8px; border-radius: 8px; background: rgb(22 22 24 / 66%); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1; pointer-events: none; backdrop-filter: blur(10px); }
+.auto-delete-off .expiry { display: none; }
 .expiry.urgent { background: #d92d20; }
 
 .resize-handle { position: absolute; right: 0; bottom: 0; z-index: 4; width: 24px; height: 24px; cursor: nwse-resize; opacity: 0; }
@@ -101,10 +127,10 @@ textarea { flex: 1; resize: none; padding: 22px; border: 0; outline: 0; line-hei
 .dialog-actions { min-height: 64px; padding: 12px 16px 12px 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #ededeb; }
 .dialog-actions span { color: #aaa; font-size: 12px; }
 .save-button { min-width: 72px; height: 38px; border-radius: 10px; background: #191919; color: #fff; font-weight: 650; }
-.confirm-dialog { width: min(340px, calc(100% - 32px)); height: auto; padding: 22px; border-radius: 14px; }
+.confirm-dialog { width: min(260px, calc(100% - 32px)); min-height: 0; height: auto; max-height: none; padding: 16px; border-radius: 12px; }
 .confirm-dialog form { display: block; }
 .confirm-dialog p { margin: 0; color: #252525; font-size: 15px; line-height: 1.5; word-break: break-word; }
-.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .cancel-button, .danger-button { height: 34px; padding: 0 13px; border: 0; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 650; }
 .cancel-button { background: #f1f1f0; color: #444; }
 .danger-button { background: #d92d20; color: #fff; }
@@ -115,6 +141,7 @@ textarea { flex: 1; resize: none; padding: 22px; border: 0; outline: 0; line-hei
   header { top: 14px; right: 12px; }
   .actions { gap: 3px; }
   .star-link { display: none; }
+  .auto-delete-button { padding: 0 8px; }
   .add-button { padding: 0 12px; }
   .item-actions, .resize-handle { opacity: 1; }
 }
