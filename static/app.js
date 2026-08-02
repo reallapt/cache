@@ -28,16 +28,16 @@ let autoDeleteEnabled = true;
 const copy = {
   zh: {
     upload: "上传", addText: "新建文字", addFolder: "上传文件夹", empty: "拖入文件，或按 Ctrl+V 粘贴",
-    textTitle: "标题", textContent: "写点什么…", save: "保存", chars: "字", loading: "读取中…",
-    previewFailed: "无法预览", remaining: "剩余", expired: "已到期", autoDeleteOn: "自动删除：开", autoDeleteOff: "自动删除：关", autoDeletePaused: "自动删除已关闭", download: "下载", delete: "删除",
+    textTitle: "标题", textContent: "写点什么…", save: "保存", saving: "保存中…", chars: "字", loading: "读取中…",
+    previewFailed: "无法预览", tableLoading: "读取表格中…", tableFailed: "表格无法预览", tablePasted: "表格已粘贴", tableAddRow: "新增行", tableAddColumn: "新增列", tableDeleteColumn: "删除此列", tableSave: "保存表格", tableSaving: "保存中…", tableSaved: "表格已保存", tableUnsaved: "未保存", tableSaveFailed: "表格保存失败", remaining: "剩余", expired: "已到期", autoDeleteOn: "自动删除：开", autoDeleteOff: "自动删除：关", autoDeletePaused: "自动删除已关闭", download: "下载", delete: "删除",
     deletePrompt: (name) => `删除“${name}”？`, cancel: "取消", deleted: "已删除", deleteFailed: "删除失败",
     readFailed: "无法读取内容", layoutFailed: "位置保存失败", uploading: (n) => `上传中 ${n}%`, uploaded: "上传完成",
     tooLarge: "文件太大", uploadFailed: "上传失败", pasted: "文字已粘贴", pasteFailed: "粘贴失败", saved: "已保存", saveFailed: "保存失败", settingsFailed: "设置保存失败"
   },
   en: {
     upload: "Upload", addText: "New text", addFolder: "Upload folder", empty: "Drop files, or press Ctrl+V to paste",
-    textTitle: "Title", textContent: "Write something…", save: "Save", chars: "chars", loading: "Loading…",
-    previewFailed: "Preview unavailable", remaining: "Left", expired: "Expired", autoDeleteOn: "Auto-delete: On", autoDeleteOff: "Auto-delete: Off", autoDeletePaused: "Auto-delete off", download: "Download", delete: "Delete",
+    textTitle: "Title", textContent: "Write something…", save: "Save", saving: "Saving…", chars: "chars", loading: "Loading…",
+    previewFailed: "Preview unavailable", tableLoading: "Loading table…", tableFailed: "Table preview unavailable", tablePasted: "Table pasted", tableAddRow: "Add row", tableAddColumn: "Add column", tableDeleteColumn: "Delete this column", tableSave: "Save table", tableSaving: "Saving…", tableSaved: "Table saved", tableUnsaved: "Unsaved", tableSaveFailed: "Could not save table", remaining: "Left", expired: "Expired", autoDeleteOn: "Auto-delete: On", autoDeleteOff: "Auto-delete: Off", autoDeletePaused: "Auto-delete off", download: "Download", delete: "Delete",
     deletePrompt: (name) => `Delete “${name}”?`, cancel: "Cancel", deleted: "Deleted", deleteFailed: "Could not delete",
     readFailed: "Could not load content", layoutFailed: "Could not save position", uploading: (n) => `Uploading ${n}%`, uploaded: "Upload complete",
     tooLarge: "File is too large", uploadFailed: "Upload failed", pasted: "Text pasted", pasteFailed: "Paste failed", saved: "Saved", saveFailed: "Could not save", settingsFailed: "Could not save settings"
@@ -63,6 +63,9 @@ function applyLanguage() {
   const cancelButton = document.querySelector(".cancel-button");
   if (cancelButton) cancelButton.textContent = t("cancel");
   if (confirmDelete) confirmDelete.textContent = t("delete");
+  document.querySelectorAll(".text-save-button").forEach((button) => {
+    button.title = button.ariaLabel = t("save");
+  });
   languageToggle.textContent = language === "zh" ? "EN" : "中";
   applyAutoDeleteState(autoDeleteEnabled);
   if (canvas.childElementCount) loadItems();
@@ -168,8 +171,11 @@ function previewMarkup(item, path) {
   if (item.preview === "audio") {
     return `<div class="preview audio-preview"><span class="audio-name">${escapeHtml(item.name)}</span><audio src="/api/content/${path}" controls preload="metadata" aria-label="${escapeHtml(item.name)}"></audio></div>`;
   }
+  if (item.preview === "table") {
+    return `<div class="preview table-preview" data-table-path="${escapeHtml(item.path)}"><div class="table-dragbar"><span class="table-name">${escapeHtml(item.name)}</span><div class="table-edit-toolbar" hidden><button type="button" data-table-action="save" title="${t("tableSave")}" aria-label="${t("tableSave")}">✓</button><span class="table-save-status" role="status" aria-live="polite"></span></div><div class="table-title-actions"><a class="download-button" href="/api/download/${path}" aria-label="${t("download")} ${escapeHtml(item.name)}" title="${t("download")}">↓</a><button class="delete-button" type="button" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" aria-label="${t("delete")} ${escapeHtml(item.name)}" title="${t("delete")}">×</button></div></div><div class="table-scroll"><table><tbody><tr><td>${t("tableLoading")}</td></tr></tbody></table></div></div>`;
+  }
   if (item.preview === "text") {
-    return `<div class="preview text-preview" data-text-path="${escapeHtml(item.path)}"><textarea readonly spellcheck="false" aria-label="${t("addText")}">${t("loading")}</textarea></div>`;
+    return `<div class="preview text-preview" data-text-path="${escapeHtml(item.path)}"><textarea readonly spellcheck="false" aria-label="${t("addText")}">${t("loading")}</textarea><button class="text-save-button" type="button" hidden aria-label="${t("save")}" title="${t("save")}">✓</button><span class="text-save-status" role="status" aria-live="polite"></span></div>`;
   }
   if (item.preview === "folder") {
     return `<div class="preview icon-preview"><span class="large-folder" aria-hidden="true"></span><span class="icon-copy"><span class="icon-name">${escapeHtml(item.name)}</span><span class="icon-meta">${formatSize(item.size)}</span></span></div>`;
@@ -187,11 +193,193 @@ async function hydrateTextPreviews() {
       const response = await fetch(`/api/preview/${encodedPath(preview.dataset.textPath)}`);
       if (!response.ok) throw new Error();
       const payload = await response.json();
-      preview.querySelector("textarea").value = payload.content + (payload.truncated ? "\n…" : "");
+      const textarea = preview.querySelector("textarea");
+      const saveButton = preview.querySelector(".text-save-button");
+      const draft = textDrafts.get(preview.dataset.textPath);
+      textarea.value = draft ?? (payload.content + (payload.truncated ? "\n…" : ""));
+      textarea.readOnly = payload.editable !== true;
+      saveButton.hidden = payload.editable !== true;
+      preview.classList.toggle("editable", payload.editable === true);
     } catch {
       preview.querySelector("textarea").value = t("previewFailed");
     }
   }));
+}
+
+async function hydrateTablePreviews() {
+  const previews = [...document.querySelectorAll("[data-table-path]")];
+  await Promise.all(previews.map(async (preview) => {
+    try {
+      const response = await fetch(`/api/table/${encodedPath(preview.dataset.tablePath)}`);
+      if (!response.ok) throw new Error();
+      const payload = await response.json();
+      const serverRows = Array.isArray(payload.rows) ? payload.rows : [];
+      const path = preview.dataset.tablePath;
+      const draft = tableDrafts.get(path);
+      const rows = draft ? draft.rows : serverRows.map((row) => [...row]);
+      if (payload.editable === true && !draft) tableDrafts.set(path, { rows, dirty: false, revision: 0 });
+      preview.dataset.tableEditable = String(payload.editable === true);
+      preview.querySelector(".table-edit-toolbar").hidden = payload.editable !== true;
+      renderTablePreview(preview, rows, payload.editable === true);
+    } catch {
+      preview.querySelector("table").innerHTML = `<tbody><tr><td>${escapeHtml(t("tableFailed"))}</td></tr></tbody>`;
+    }
+  }));
+}
+
+const tableDrafts = new Map();
+
+function tableStatus(preview, message, state = "") {
+  const status = preview.querySelector(".table-save-status");
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.state = state;
+  if (message && state !== "unsaved") setTimeout(() => {
+    if (status.textContent === message) status.textContent = "";
+  }, 1800);
+}
+
+function renderTablePreview(preview, rows, editable) {
+  const table = preview.querySelector("table");
+  if (!rows.length) {
+    table.innerHTML = `<tbody><tr><td>${escapeHtml(t("tableFailed"))}</td></tr></tbody>`;
+    return;
+  }
+  const width = Math.max(1, ...rows.map((row) => row.length));
+  const header = rows[0] || [];
+  const body = rows.slice(1);
+  const cellEditor = (value, row, column) => editable
+    ? `<span class="table-cell-editor" contenteditable="true" data-row="${row}" data-column="${column}" spellcheck="false">${escapeHtml(value)}</span>`
+    : escapeHtml(value);
+  const headerCell = (value, column) => `<th class="table-header-cell">${cellEditor(value, 0, column)}${editable ? `<button class="table-column-delete" type="button" data-table-action="delete-column" data-column="${column}" title="${t("tableDeleteColumn")}" aria-label="${t("tableDeleteColumn")}">×</button>` : ""}</th>`;
+  const bodyCell = (value, row, column) => `<td>${cellEditor(value, row, column)}</td>`;
+  const controlColumn = editable ? `<th class="table-add-column-cell"><button class="table-add-button" type="button" data-table-action="add-column" title="${t("tableAddColumn")}" aria-label="${t("tableAddColumn")}">＋</button></th>` : "";
+  const bodyRows = body.map((row, rowIndex) => {
+    const cells = Array.from({ length: width }, (_, column) => bodyCell(row[column] ?? "", rowIndex + 1, column)).join("");
+    return `<tr>${cells}${editable ? "<td class=\"table-control-cell\"></td>" : ""}</tr>`;
+  }).join("");
+  const addRow = editable ? `<tr class="table-add-row"><td colspan="${width + 1}"><button class="table-add-button" type="button" data-table-action="add-row" title="${t("tableAddRow")}" aria-label="${t("tableAddRow")}">＋</button></td></tr>` : "";
+  table.innerHTML = `<thead><tr>${Array.from({ length: width }, (_, column) => headerCell(header[column] ?? "", column)).join("")}${controlColumn}</tr></thead><tbody>${bodyRows}${addRow}</tbody>`;
+}
+
+const tableSaveTimers = new WeakMap();
+
+function scheduleTableSave(preview) {
+  clearTimeout(tableSaveTimers.get(preview));
+  tableSaveTimers.set(preview, setTimeout(() => saveTablePreview(preview), 700));
+}
+
+function changeTableDraft(preview, action, columnIndex = null) {
+  const path = preview.dataset.tablePath;
+  const draft = tableDrafts.get(path);
+  if (!draft) return;
+  const width = Math.max(1, ...draft.rows.map((row) => row.length));
+  if (action === "delete-column" && (width <= 1 || !Number.isInteger(columnIndex))) return;
+  if (action === "add-row") draft.rows.push(Array(width).fill(""));
+  if (action === "add-column") draft.rows.forEach((row) => row.push(""));
+  if (action === "delete-column" && width > 1 && Number.isInteger(columnIndex)) {
+    draft.rows.forEach((row) => row.splice(columnIndex, 1));
+  }
+  if (!["add-row", "add-column", "delete-column"].includes(action)) return;
+  draft.revision = (draft.revision || 0) + 1;
+  draft.dirty = true;
+  renderTablePreview(preview, draft.rows, true);
+  tableStatus(preview, t("tableUnsaved"), "unsaved");
+  scheduleTableSave(preview);
+}
+
+async function saveTablePreview(preview) {
+  const path = preview.dataset.tablePath;
+  const draft = tableDrafts.get(path);
+  if (!draft || !draft.dirty) return;
+  clearTimeout(tableSaveTimers.get(preview));
+  tableSaveTimers.delete(preview);
+  const revision = draft.revision || 0;
+  const rows = draft.rows.map((row) => [...row]);
+  const saveButton = preview.querySelector('[data-table-action="save"]');
+  if (saveButton) saveButton.disabled = true;
+  tableStatus(preview, t("tableSaving"), "saving");
+  try {
+    const response = await fetch(`/api/table/${encodedPath(path)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows })
+    });
+    if (!response.ok) throw new Error();
+    const savedItem = await response.json();
+    const current = currentItems.find((item) => item.path === savedItem.path);
+    if (current) {
+      current.modified = savedItem.modified;
+      current.size = savedItem.size;
+      itemsFingerprint = fingerprintItems(currentItems);
+    }
+    if (draft.revision === revision) {
+      draft.dirty = false;
+      tableStatus(preview, t("tableSaved"), "saved");
+    } else {
+      scheduleTableSave(preview);
+    }
+  } catch {
+    tableStatus(preview, t("tableSaveFailed"), "error");
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+const textSaveTimers = new WeakMap();
+const textDrafts = new Map();
+
+function markTextSaveStatus(preview, message, state = "") {
+  const status = preview.querySelector(".text-save-status");
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.state = state;
+  if (message) setTimeout(() => {
+    if (status.textContent === message) status.textContent = "";
+  }, 1800);
+}
+
+async function saveTextPreview(preview) {
+  const textarea = preview.querySelector("textarea");
+  const saveButton = preview.querySelector(".text-save-button");
+  if (!textarea || textarea.readOnly || !saveButton) return;
+  const path = preview.dataset.textPath;
+  const content = textarea.value;
+  clearTimeout(textSaveTimers.get(preview));
+  textSaveTimers.delete(preview);
+  saveButton.disabled = true;
+  markTextSaveStatus(preview, t("saving"), "saving");
+  try {
+    const response = await fetch(`/api/preview/${encodedPath(preview.dataset.textPath)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content })
+    });
+    if (!response.ok) throw new Error();
+    const savedItem = await response.json();
+    const current = currentItems.find((item) => item.path === savedItem.path);
+    if (current && savedItem.modified) {
+      current.modified = savedItem.modified;
+      itemsFingerprint = fingerprintItems(currentItems);
+    }
+    const latestDraft = textDrafts.get(path);
+    if (latestDraft === undefined || latestDraft === content) {
+      textDrafts.delete(path);
+      markTextSaveStatus(preview, t("saved"), "saved");
+    } else {
+      scheduleTextSave(preview);
+    }
+  } catch {
+    markTextSaveStatus(preview, t("saveFailed"), "error");
+  } finally {
+    saveButton.disabled = false;
+  }
+}
+
+function scheduleTextSave(preview) {
+  clearTimeout(textSaveTimers.get(preview));
+  markTextSaveStatus(preview, t("saving"), "saving");
+  textSaveTimers.set(preview, setTimeout(() => saveTextPreview(preview), 700));
 }
 
 function updateCanvasHeight() {
@@ -227,6 +415,13 @@ async function loadItems(force = false) {
     }
     itemsFingerprint = fingerprint;
     currentItems = items;
+    const itemPaths = new Set(items.map((item) => item.path));
+    for (const path of textDrafts.keys()) {
+      if (!itemPaths.has(path)) textDrafts.delete(path);
+    }
+    for (const path of tableDrafts.keys()) {
+      if (!itemPaths.has(path)) tableDrafts.delete(path);
+    }
     const preservedPdfs = new Map([...canvas.querySelectorAll(".item-pdf")].map((element) => [element.dataset.path, element]));
     emptyState.hidden = items.length > 0;
     canvas.classList.toggle("has-items", items.length > 0);
@@ -277,6 +472,7 @@ async function loadItems(force = false) {
     normalizeDefaultMobileLayouts();
     updateCanvasHeight();
     hydrateTextPreviews();
+    hydrateTablePreviews();
     updateCountdowns();
   } catch {
     toast(t("readFailed"));
@@ -332,6 +528,32 @@ async function createText(title, content) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, content })
+  });
+  if (!response.ok) throw new Error();
+  await loadItems();
+}
+
+function clipboardTableRows(html, plainText) {
+  if (html && /<table[\s>]/i.test(html)) {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const table = template.content.querySelector("table");
+    if (table) {
+      const rows = [...table.querySelectorAll("tr")].map((row) => [...row.querySelectorAll("th,td")].map((cell) => (cell.textContent || "").replace(/\u00a0/g, " ").trim()));
+      if (rows.some((row) => row.length > 1)) return rows;
+    }
+  }
+  if (!plainText || !plainText.includes("\t")) return null;
+  const rows = plainText.replace(/\r\n?/g, "\n").split("\n").filter((line) => line.length > 0).map((line) => line.split("\t"));
+  return rows.length && rows.some((row) => row.length > 1) ? rows : null;
+}
+
+async function createTable(rows) {
+  const stamp = new Date().toLocaleString("sv-SE").replaceAll(":", "-");
+  const response = await fetch("/api/table", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: `${language === "zh" ? "粘贴表格" : "Pasted table"} ${stamp}`, rows })
   });
   if (!response.ok) throw new Error();
   await loadItems();
@@ -406,7 +628,7 @@ document.addEventListener("drop", async (event) => {
 
 canvas.addEventListener("pointerdown", (event) => {
   const item = event.target.closest(".item");
-  if (!item || event.button !== 0 || event.target.closest(".item-actions, .pdf-title-actions, .video-title-actions, video, audio, iframe")) return;
+  if (!item || event.button !== 0 || event.target.closest(".item-actions, .pdf-title-actions, .video-title-actions, .text-save-button, .table-edit-toolbar, .table-title-actions, .table-scroll, video, audio, iframe")) return;
   if (event.target.closest(".text-preview textarea")) {
     highestZ += 1;
     item.style.zIndex = highestZ;
@@ -461,6 +683,13 @@ document.addEventListener("paste", async (event) => {
   const files = [...event.clipboardData.files];
   if (files.length) { event.preventDefault(); uploadFiles(files); return; }
   const text = event.clipboardData.getData("text/plain");
+  const rows = clipboardTableRows(event.clipboardData.getData("text/html"), text);
+  if (rows) {
+    event.preventDefault();
+    try { await createTable(rows); toast(t("tablePasted")); }
+    catch { toast(t("uploadFailed")); }
+    return;
+  }
   if (!text.trim()) return;
   event.preventDefault();
   const stamp = new Date().toLocaleString("sv-SE").replaceAll(":", "-");
@@ -483,7 +712,43 @@ textForm.addEventListener("submit", async (event) => {
   } catch { toast(t("saveFailed")); }
 });
 
+canvas.addEventListener("input", (event) => {
+  const tableCell = event.target.closest("[data-table-path] [contenteditable='true'][data-row][data-column]");
+  if (tableCell) {
+    const preview = tableCell.closest("[data-table-path]");
+    const draft = tableDrafts.get(preview.dataset.tablePath);
+    const row = Number(tableCell.dataset.row);
+    const column = Number(tableCell.dataset.column);
+    if (draft && Number.isInteger(row) && Number.isInteger(column)) {
+      draft.rows[row] ??= [];
+      draft.rows[row][column] = tableCell.textContent || "";
+      draft.revision = (draft.revision || 0) + 1;
+      draft.dirty = true;
+      tableStatus(preview, t("tableUnsaved"), "unsaved");
+      scheduleTableSave(preview);
+    }
+    return;
+  }
+  const textarea = event.target.closest("[data-text-path] textarea");
+  if (!textarea || textarea.readOnly) return;
+  const preview = textarea.closest("[data-text-path]");
+  textDrafts.set(preview.dataset.textPath, textarea.value);
+  scheduleTextSave(preview);
+});
+
 canvas.addEventListener("click", async (event) => {
+  const tableAction = event.target.closest("[data-table-action]");
+  if (tableAction) {
+    const preview = tableAction.closest("[data-table-path]");
+    if (tableAction.dataset.tableAction === "save") await saveTablePreview(preview);
+    else changeTableDraft(preview, tableAction.dataset.tableAction, Number(tableAction.dataset.column));
+    return;
+  }
+  const saveButton = event.target.closest(".text-save-button");
+  if (saveButton) {
+    await saveTextPreview(saveButton.closest("[data-text-path]"));
+    return;
+  }
   const button = event.target.closest(".delete-button");
   if (!button) return;
   if (!confirm(t("deletePrompt", button.dataset.name))) return;
@@ -509,7 +774,8 @@ autoDeleteToggle?.addEventListener("click", toggleAutoDelete);
 window.addEventListener("resize", () => updateCanvasHeight());
 setInterval(updateCountdowns, 1000);
 setInterval(() => {
-  if (!document.hidden && !gesture && !textDialog.open && !deleteDialog?.open) loadItems();
+  const editingText = document.activeElement?.matches?.("[data-text-path] textarea");
+  if (!document.hidden && !gesture && !editingText && !textDialog.open && !deleteDialog?.open) loadItems();
 }, 1000);
 applyLanguage();
 Promise.all([loadSettings(), loadItems(true)]).catch(() => toast(t("readFailed")));
