@@ -12,15 +12,24 @@
 
 - 文件、多个文件与文件夹上传，支持拖放。
 - `Ctrl+V` 可粘贴文件、截图；纯文字会保存为文本文件。
-- 图片、视频和文字直接预览；文字可原生选中与复制，Markdown 和 TXT 可直接编辑并自动保存。
+- 图片、视频、PDF、音频和文字直接预览；文字可原生选中与复制，Markdown 和 TXT 可直接编辑并自动保存。
 - CSV、TSV 和 XLSX 直接显示为可滚动表格；从 Excel 复制的 HTML/制表符表格可直接粘贴并生成 CSV。
-- XLSX 表格支持直接修改单元格和表头、添加或删除行列，并自动保存回原文件；CSV/TSV 保持只读。
+- XLSX 表格支持直接修改单元格和表头、添加或删除行列，并自动保存回原文件；每个表头右侧有删除列按钮，每条数据行最右侧有删除行按钮，最右侧和最底部的 `＋` 分别用于新增列和新增行；CSV/TSV 保持只读。
 - 文件夹、压缩包和普通文件使用图标展示；普通文件图标显示扩展名前三位，并使用稳定的随机颜色。
 - 内容块可自由拖动、调整大小和层级；桌面与移动端布局分别保存。
 - 单击下载；文件夹下载时自动打包为 ZIP。
 - 每个内容从创建起保留 24 小时，显示实时倒计时；少于一小时变红，到期后自动删除。
 - 可通过右上角的“自动删除”开关暂停或恢复自动删除；关闭时保留文件但暂停倒计时，重新开启会重置现有内容的 24 小时期限。
+- 页面前台每秒更新状态；PDF 和视频窗口保留标题栏，下载、删除操作不会遮挡预览内容。
+- 右上角提供语言切换和 `Give us a star!` 项目链接。
 - 移动端和桌面端响应式界面。
+
+### 表格编辑说明
+
+- 从 Excel 复制 HTML 表格或制表符文本后按 `Ctrl+V`，会自动创建新的 CSV 表格。
+- XLSX 修改采用约 700 毫秒防抖自动保存；编辑过程中每秒刷新不会覆盖本地草稿。
+- 删除行或列后，服务端会同步清理 XLSX 工作簿中的旧单元格、行节点和 dimension 范围。
+- HEIC、DOCX 等浏览器无法直接渲染的格式会显示为可下载文件卡片；HEIC 是否能直接显示取决于浏览器支持。
 
 ### 安装
 
@@ -70,15 +79,24 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 
 - Upload files, multiple files, and folders with drag and drop.
 - Paste files or screenshots with `Ctrl+V`; plain text is saved as a text file.
-- Preview images, videos, and text directly. Text can be selected and copied natively; Markdown and TXT files can be edited and auto-saved.
+- Preview images, videos, PDFs, audio, and text directly. Text can be selected and copied natively; Markdown and TXT files can be edited and auto-saved.
 - Render CSV, TSV, and XLSX files as scrollable tables. HTML/tab-separated tables copied from Excel can be pasted directly as CSV.
-- Edit XLSX cells and headers, add or delete rows and columns, and automatically save changes back to the original workbook. CSV/TSV previews remain read-only.
+- Edit XLSX cells and headers, add or delete rows and columns, and automatically save changes back to the original workbook. Each header has a visible delete-column button, each data row has a visible delete-row button, and the trailing `+` controls add columns and rows. CSV/TSV previews remain read-only.
 - Folder, archive, and generic file icons. Generic icons use the first three extension characters and a stable random color.
 - Drag, resize, and layer every item freely. Desktop and mobile layouts are saved separately.
 - Click to download. Folders are downloaded as ZIP archives automatically.
 - Every item has a 24-hour lifetime with a live countdown. It turns red during the final hour and is deleted automatically on expiry.
 - Toggle auto-delete from the top-right control. When disabled, files are retained and countdowns are paused; re-enabling resets the 24-hour lifetime for existing items.
+- The foreground UI refreshes state every second. PDF and video windows keep their title bars, while download and delete actions stay outside the preview surface.
+- The top-right controls include language switching and a `Give us a star!` project link.
 - Responsive desktop and mobile interface.
+
+### Table editing notes
+
+- Copy an HTML table or a tab-separated range from Excel and press `Ctrl+V` to create a new CSV table.
+- XLSX edits use a roughly 700 ms debounced auto-save; one-second refreshes do not overwrite an active local draft.
+- Deleting a row or column also removes the old XLSX cells, row nodes, and worksheet dimension on the server.
+- HEIC and DOCX files that browsers cannot render are kept as downloadable file cards; direct HEIC rendering depends on browser support.
 
 ### Install
 
