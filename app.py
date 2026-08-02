@@ -406,6 +406,10 @@ def save_xlsx_rows(path: Path, rows: list[list[object]]) -> None:
                 text = ET.SubElement(inline, f"{{{main_ns}}}t")
                 text.text = value
 
+        for row_number, row_node in list(row_nodes.items()):
+            if row_number > len(rows):
+                sheet_data.remove(row_node)
+                del row_nodes[row_number]
         max_existing_row = max(row_nodes, default=0)
         max_row = max(max_existing_row, len(rows))
         max_column = max(1, target_width)
