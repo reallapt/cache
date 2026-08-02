@@ -29,7 +29,7 @@ const copy = {
   zh: {
     upload: "上传", addText: "新建文字", addFolder: "上传文件夹", empty: "拖入文件，或按 Ctrl+V 粘贴",
     textTitle: "标题", textContent: "写点什么…", save: "保存", saving: "保存中…", chars: "字", loading: "读取中…",
-    previewFailed: "无法预览", tableLoading: "读取表格中…", tableFailed: "表格无法预览", tablePasted: "表格已粘贴", tableAddRow: "新增行", tableAddColumn: "新增列", tableDeleteColumn: "删除此列", tableSave: "保存表格", tableSaving: "保存中…", tableSaved: "表格已保存", tableUnsaved: "未保存", tableSaveFailed: "表格保存失败", remaining: "剩余", expired: "已到期", autoDeleteOn: "自动删除：开", autoDeleteOff: "自动删除：关", autoDeletePaused: "自动删除已关闭", download: "下载", delete: "删除",
+    previewFailed: "无法预览", tableLoading: "读取表格中…", tableFailed: "表格无法预览", tablePasted: "表格已粘贴", tableAddRow: "新增行", tableAddColumn: "新增列", tableDeleteColumn: "删除此列", tableDeleteRow: "删除此行", tableSave: "保存表格", tableSaving: "保存中…", tableSaved: "表格已保存", tableUnsaved: "未保存", tableSaveFailed: "表格保存失败", remaining: "剩余", expired: "已到期", autoDeleteOn: "自动删除：开", autoDeleteOff: "自动删除：关", autoDeletePaused: "自动删除已关闭", download: "下载", delete: "删除",
     deletePrompt: (name) => `删除“${name}”？`, cancel: "取消", deleted: "已删除", deleteFailed: "删除失败",
     readFailed: "无法读取内容", layoutFailed: "位置保存失败", uploading: (n) => `上传中 ${n}%`, uploaded: "上传完成",
     tooLarge: "文件太大", uploadFailed: "上传失败", pasted: "文字已粘贴", pasteFailed: "粘贴失败", saved: "已保存", saveFailed: "保存失败", settingsFailed: "设置保存失败"
@@ -37,7 +37,7 @@ const copy = {
   en: {
     upload: "Upload", addText: "New text", addFolder: "Upload folder", empty: "Drop files, or press Ctrl+V to paste",
     textTitle: "Title", textContent: "Write something…", save: "Save", saving: "Saving…", chars: "chars", loading: "Loading…",
-    previewFailed: "Preview unavailable", tableLoading: "Loading table…", tableFailed: "Table preview unavailable", tablePasted: "Table pasted", tableAddRow: "Add row", tableAddColumn: "Add column", tableDeleteColumn: "Delete this column", tableSave: "Save table", tableSaving: "Saving…", tableSaved: "Table saved", tableUnsaved: "Unsaved", tableSaveFailed: "Could not save table", remaining: "Left", expired: "Expired", autoDeleteOn: "Auto-delete: On", autoDeleteOff: "Auto-delete: Off", autoDeletePaused: "Auto-delete off", download: "Download", delete: "Delete",
+    previewFailed: "Preview unavailable", tableLoading: "Loading table…", tableFailed: "Table preview unavailable", tablePasted: "Table pasted", tableAddRow: "Add row", tableAddColumn: "Add column", tableDeleteColumn: "Delete this column", tableDeleteRow: "Delete this row", tableSave: "Save table", tableSaving: "Saving…", tableSaved: "Table saved", tableUnsaved: "Unsaved", tableSaveFailed: "Could not save table", remaining: "Left", expired: "Expired", autoDeleteOn: "Auto-delete: On", autoDeleteOff: "Auto-delete: Off", autoDeletePaused: "Auto-delete off", download: "Download", delete: "Delete",
     deletePrompt: (name) => `Delete “${name}”?`, cancel: "Cancel", deleted: "Deleted", deleteFailed: "Could not delete",
     readFailed: "Could not load content", layoutFailed: "Could not save position", uploading: (n) => `Uploading ${n}%`, uploaded: "Upload complete",
     tooLarge: "File is too large", uploadFailed: "Upload failed", pasted: "Text pasted", pasteFailed: "Paste failed", saved: "Saved", saveFailed: "Could not save", settingsFailed: "Could not save settings"
@@ -256,7 +256,8 @@ function renderTablePreview(preview, rows, editable) {
   const controlColumn = editable ? `<th class="table-add-column-cell"><button class="table-add-button" type="button" data-table-action="add-column" title="${t("tableAddColumn")}" aria-label="${t("tableAddColumn")}">＋</button></th>` : "";
   const bodyRows = body.map((row, rowIndex) => {
     const cells = Array.from({ length: width }, (_, column) => bodyCell(row[column] ?? "", rowIndex + 1, column)).join("");
-    return `<tr>${cells}${editable ? "<td class=\"table-control-cell\"></td>" : ""}</tr>`;
+    const rowControl = editable ? `<td class="table-control-cell"><button class="table-row-delete" type="button" data-table-action="delete-row" data-row="${rowIndex + 1}" title="${t("tableDeleteRow")}" aria-label="${t("tableDeleteRow")}">×</button></td>` : "";
+    return `<tr>${cells}${rowControl}</tr>`;
   }).join("");
   const addRow = editable ? `<tr class="table-add-row"><td colspan="${width + 1}"><button class="table-add-button" type="button" data-table-action="add-row" title="${t("tableAddRow")}" aria-label="${t("tableAddRow")}">＋</button></td></tr>` : "";
   table.innerHTML = `<thead><tr>${Array.from({ length: width }, (_, column) => headerCell(header[column] ?? "", column)).join("")}${controlColumn}</tr></thead><tbody>${bodyRows}${addRow}</tbody>`;
@@ -269,18 +270,22 @@ function scheduleTableSave(preview) {
   tableSaveTimers.set(preview, setTimeout(() => saveTablePreview(preview), 700));
 }
 
-function changeTableDraft(preview, action, columnIndex = null) {
+function changeTableDraft(preview, action, index = null) {
   const path = preview.dataset.tablePath;
   const draft = tableDrafts.get(path);
   if (!draft) return;
   const width = Math.max(1, ...draft.rows.map((row) => row.length));
-  if (action === "delete-column" && (width <= 1 || !Number.isInteger(columnIndex))) return;
+  if (action === "delete-column" && (width <= 1 || !Number.isInteger(index))) return;
+  if (action === "delete-row" && (draft.rows.length <= 1 || !Number.isInteger(index) || index < 1 || index >= draft.rows.length)) return;
   if (action === "add-row") draft.rows.push(Array(width).fill(""));
   if (action === "add-column") draft.rows.forEach((row) => row.push(""));
-  if (action === "delete-column" && width > 1 && Number.isInteger(columnIndex)) {
-    draft.rows.forEach((row) => row.splice(columnIndex, 1));
+  if (action === "delete-column" && width > 1 && Number.isInteger(index)) {
+    draft.rows.forEach((row) => row.splice(index, 1));
   }
-  if (!["add-row", "add-column", "delete-column"].includes(action)) return;
+  if (action === "delete-row" && Number.isInteger(index) && index >= 1 && index < draft.rows.length) {
+    draft.rows.splice(index, 1);
+  }
+  if (!["add-row", "add-column", "delete-column", "delete-row"].includes(action)) return;
   draft.revision = (draft.revision || 0) + 1;
   draft.dirty = true;
   renderTablePreview(preview, draft.rows, true);
@@ -741,7 +746,12 @@ canvas.addEventListener("click", async (event) => {
   if (tableAction) {
     const preview = tableAction.closest("[data-table-path]");
     if (tableAction.dataset.tableAction === "save") await saveTablePreview(preview);
-    else changeTableDraft(preview, tableAction.dataset.tableAction, Number(tableAction.dataset.column));
+    else {
+      const index = tableAction.dataset.tableAction === "delete-row"
+        ? Number(tableAction.dataset.row)
+        : Number(tableAction.dataset.column);
+      changeTableDraft(preview, tableAction.dataset.tableAction, index);
+    }
     return;
   }
   const saveButton = event.target.closest(".text-save-button");

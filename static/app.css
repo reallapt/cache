@@ -116,6 +116,8 @@ header { position: fixed; top: 18px; right: 24px; z-index: 10010; display: flex;
 .table-column-delete { position: absolute; top: 50%; right: 4px; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 1px solid #f0c2b9; border-radius: 6px; background: #fff1ee; color: #c73524; cursor: pointer; font-size: 16px; font-weight: 700; line-height: 1; opacity: 1; transform: translateY(-50%); }
 .table-column-delete:focus, .table-column-delete:hover { background: #ffdcd5; border-color: #d53825; color: #a52215; }
 .table-add-column-cell, .table-control-cell { width: 28px; min-width: 28px !important; max-width: 28px !important; padding: 0 !important; text-align: center !important; }
+.table-row-delete { width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #f0c2b9; border-radius: 6px; background: #fff1ee; color: #c73524; cursor: pointer; font-size: 16px; font-weight: 700; line-height: 1; }
+.table-row-delete:focus, .table-row-delete:hover { background: #ffdcd5; border-color: #d53825; color: #a52215; }
 .table-add-row td { height: 28px; min-width: 0; padding: 0; border-bottom: 0; text-align: center; }
 .table-add-button { width: 24px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #999; cursor: pointer; font-size: 15px; line-height: 1; }
 .table-add-button:hover { background: #e9e9e7; color: #222; }
