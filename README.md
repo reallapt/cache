@@ -14,7 +14,7 @@
 - `Ctrl+V` 可粘贴文件、截图；纯文字会保存为文本文件。
 - 图片、视频和文字直接预览；文字可原生选中与复制，Markdown 和 TXT 可直接编辑并自动保存。
 - CSV、TSV 和 XLSX 直接显示为可滚动表格；从 Excel 复制的 HTML/制表符表格可直接粘贴并生成 CSV。
-- XLSX 表格支持直接修改单元格和表头、添加或删除列、添加行，并自动保存回原文件；CSV/TSV 保持只读。
+- XLSX 表格支持直接修改单元格和表头、添加或删除行列，并自动保存回原文件；CSV/TSV 保持只读。
 - 文件夹、压缩包和普通文件使用图标展示；普通文件图标显示扩展名前三位，并使用稳定的随机颜色。
 - 内容块可自由拖动、调整大小和层级；桌面与移动端布局分别保存。
 - 单击下载；文件夹下载时自动打包为 ZIP。
@@ -72,7 +72,7 @@ docker run -d --name cache -p 9178:8000 -v cache-data:/data/files reallapt/cache
 - Paste files or screenshots with `Ctrl+V`; plain text is saved as a text file.
 - Preview images, videos, and text directly. Text can be selected and copied natively; Markdown and TXT files can be edited and auto-saved.
 - Render CSV, TSV, and XLSX files as scrollable tables. HTML/tab-separated tables copied from Excel can be pasted directly as CSV.
-- Edit XLSX cells and headers, add rows, add or delete columns, and automatically save changes back to the original workbook. CSV/TSV previews remain read-only.
+- Edit XLSX cells and headers, add or delete rows and columns, and automatically save changes back to the original workbook. CSV/TSV previews remain read-only.
 - Folder, archive, and generic file icons. Generic icons use the first three extension characters and a stable random color.
 - Drag, resize, and layer every item freely. Desktop and mobile layouts are saved separately.
 - Click to download. Folders are downloaded as ZIP archives automatically.
